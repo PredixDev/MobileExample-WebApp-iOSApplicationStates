@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	   <meta name = "viewport" content = "width=device-width">
+    	<meta name = "format-detection" content = "telephone=no">
+		<style>
+			.hideMe {position:absolute;top:-1000px;left:-1000px}
+			button { width: 200px; height: 34px; margin-top: 15px}
+			body {margin-top: 22px}
+		</style>
+	</head>
+	<body>
+		<hr>
+		<div style="font-size: larger">Application State WebApp Demo</div>
+		<hr>
+		<div>This demo shows how to respond to application state notifications through two examples:</div>
+		<ul style="font-size: smaller">
+		<li>Preserving state before backgrounding, then retrieving that state when the application resumes and showing the amount of time the application was suspended.</li>
+		<li>Responding to memory pressure warnings.</li>
+		</ul>
+		<hr>
+		<div>Preserving state:</div>
+		<div><textarea id="textToPreserve" rows="10" cols="50">Enter some text here</textarea></div>
+		<div><span style="font-size: smaller">Note that text entered in the above box will be preserved when the application is backgrounded, and the restored when the application resumes; even if the application is terminated via the iOS task manager.<span></div>
+		<hr>
+		<div style="font-size: smaller" id="lastRun">First time running.</div>
+		<hr>
+		<div>Memory usage: <button id="useMemoryButton" onclick="useMemory()">Use Memory</button></div>
+		<div>Records: <span id="recordCount">0</span></div>
+		<div id="memoryTestComplete"></div>
+		<hr>
+		
+		<script type="text/javascript">
+
+		//General function used to call pmapi services
+		function callapi(url, method, data, onComplete) {
+			console.log("callapi: " + url);
+
+			var xmlhttp = new XMLHttpRequest();
+
+		  xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+				console.log("Response status: " + xmlhttp.status);
+				console.log("Response payload: " + xmlhttp.responseText);
+				if (onComplete) {
+					onComplete(xmlhttp); 
+				}
+			}
+		  };
+
+		  var payload = JSON.stringify(data);
+
+			xmlhttp.open(method, url, true);
+			xmlhttp.setRequestHeader("Content-type","application/json;charset=UTF-8");
+			xmlhttp.send(payload);
+		}
+
+
+		// Routes console.info and console.error logging to the container.
+		function overrideLogs()
+		{
+		  console.baseInfoLog = console.info
+		  console.info = function(logMessage) {
+			console.baseInfoLog(logMessage)
+			
+			callapi("http://pmapi/log", "PUT", {"level":"info", "log":logMessage});
+		  }
+
+		  console.baseErrorLog = console.error
+		  console.error = function(logMessage) {
+			console.baseErrorLog(logMessage)
+			callapi("http://pmapi/log", "PUT", {"level":"error", "log":logMessage});
+		  }
+
+		  console.info("Overrode logging");
+		}
+		
+		// variables used to demonstrate retention of application state
+		var timeBackgrounded;
+		var stateDoc = {}
+
+		// Preserve the current state in a local data document
+		function saveState() {
+
+			console.info("Webapp storing current state")
+
+			timeBackgrounded = new Date();
+	
+			self.stateDoc.data = document.getElementById("textToPreserve").value;
+			self.stateDoc.date = self.timeBackgrounded.getTime();
+
+			callapi("http://pmapi/cdb/~/_local/stored_state", "PUT", self.stateDoc);
+		}
+
+		// welcome user back from backgrounding
+		function welcomeback()
+		{
+			var msg = timeInSuspension(timeBackgrounded, "Welcome back, app was backgrounded for: ");
+			if (msg != "")
+			{
+				var lastRunElement = document.getElementById("lastRun");
+				lastRunElement.innerText = msg;
+			}
+		}
+		
+		// calculate and format time since backgrounded or application last run
+		function timeInSuspension(backgroundedDate, initialText)
+		{
+			var now = new Date();
+			var diffMs = (now - backgroundedDate);
+			var diffDays = Math.round(diffMs / 86400000); // days
+			var diffHrs = Math.round((diffMs % 86400000) / 3600000); // hours
+			var diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000); // minutes
+			var diffSecs = ((((diffMs % 86400000) % 3600000) % 60000) / 1000).toFixed(3); // seconds
+			
+			var msg = initialText.trim() + " ";
+			
+			if (diffDays > 0)
+			{
+				msg += diffDays + " days, ";
+			}
+			if (diffHrs > 0)
+			{
+				msg += diffHrs + " hours, ";
+			}
+			if (diffMins > 0)
+			{
+				msg += diffMins + " minutes, ";
+			}
+			if (diffSecs > 0)
+			{
+				msg += diffSecs + " seconds";
+			}
+			msg = msg.replace(/(,\s*$)/g, "");
+			return msg;
+		}
+		
+		// Retrieve stored state from the local data document
+		function retrieveState() {
+		
+			console.info("Webapp retrieving previous state");
+			callapi("http://pmapi/cdb/~/_local/stored_state", "GET", "", function(xmlhttp) {
+				
+				if (xmlhttp.status == 200) {
+					var textAreaElement = document.getElementById("textToPreserve");
+					
+					// storing this doc in global variable, so we can update in saveState
+					self.stateDoc = JSON.parse(xmlhttp.response);
+					textAreaElement.value = stateDoc.data;
+					
+					var lastRunDate = new Date(stateDoc.date)
+					var lastRunElement = document.getElementById("lastRun");
+					
+					lastRunElement.innerText = self.timeInSuspension(lastRunDate, "Time since app last ran: ");
+				}
+				
+			});
+		}
+
+		// Consumes memory to demonstrate responding to memory pressure
+		var memoryEater = [];
+		var stopEating = false;
+		function useMemory() {
+			
+			stopEating = false;
+
+			console.info("Started memory consumption");
+			
+			document.getElementById("useMemoryButton").disabled = true;
+			
+			var counterElement = document.getElementById("recordCount");
+			
+			var eat = function() {
+				if (!stopEating) {
+					
+					for(var i=0;i<1000;i++)
+					{
+						// create a unique random string for each row
+						var testString = String.fromCharCode(33 + Math.floor(Math.random() * 93));
+						for(var n=0; n < 10; n++)
+						{
+							testString += testString
+						}
+						memoryEater.push(testString);
+					}
+					counterElement.textContent = memoryEater.length;
+					window.setTimeout(eat, 1);
+				}
+				else
+				{
+					memoryEater.length = 0;
+					document.getElementById("memoryTestComplete").textContent = "Received memory warning: memory released";
+					document.getElementById("useMemoryButton").disabled = false;
+				}
+			};
+
+			eat();			
+		}
+		
+		// Triggers above process to release memory when memory warning detected
+		function releaseMemory() {
+			stopEating = true;
+			console.info("Stopped memory consumption");
+		}
+		
+		// Central function to respond to application state events
+		function applicationStateEventOccured(name) {
+			
+			console.info("Received application state notification: " + name);
+			switch(name)
+			{
+				case "UIApplicationDidEnterBackgroundNotification":
+					saveState();
+					break;
+				case "UIApplicationWillEnterForegroundNotification":
+					welcomeback();
+					break;
+				case "UIApplicationDidReceiveMemoryWarningNotification":
+					releaseMemory();
+					break;
+				default:
+			}
+		}
+		
+		/*
+		    Brief explanation of common iOS application state notifications:
+		    
+			UIApplicationDidEnterBackgroundNotification -- App is now in the background and will be suspended. Save State
+			UIApplicationWillEnterForegroundNotification -- App is waking up from background -- Resume state
+			UIApplicationDidBecomeActiveNotification -- App is now active
+			UIApplicationWillResignActiveNotification -- App is not active, but not in background yet.
+			UIApplicationWillTerminateNotification -- App going bye bye
+			UIApplicationDidReceiveMemoryWarningNotification
+		*/
+		
+		// Subscribe to the application state notifications we're interested in, and a few more.
+		function setupNotifications(){
+		
+			var notifyData = {}
+			notifyData.script = "applicationStateEventOccured({notificationName});"
+			
+			callapi("http://pmapi/notify/events/UIApplicationDidEnterBackgroundNotification", "POST", notifyData);
+			callapi("http://pmapi/notify/events/UIApplicationWillEnterForegroundNotification", "POST", notifyData);
+			callapi("http://pmapi/notify/events/UIApplicationDidBecomeActiveNotification", "POST", notifyData);
+			callapi("http://pmapi/notify/events/UIApplicationWillResignActiveNotification", "POST", notifyData);
+			callapi("http://pmapi/notify/events/UIApplicationWillTerminateNotification", "POST", notifyData);
+			callapi("http://pmapi/notify/events/UIApplicationDidReceiveMemoryWarningNotification", "POST", notifyData);
+		}
+
+		// When the webapp starts, setup our environment, and retrieve state if any exists.		
+		function start(){
+			overrideLogs();
+			setupNotifications();
+			retrieveState();
+		}
+		
+		start();
+		
+		</script>
+
+	</script>
+	</body>
+</html>
+

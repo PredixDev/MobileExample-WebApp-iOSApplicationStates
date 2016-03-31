@@ -1,0 +1,8 @@
+{
+    "name": "Sample1",
+    "version": "1.0",
+    "starter": "pm-appstatesexample-app",
+    "dependencies": {
+        "pm-appstatesexample-app": "0.0.1"
+     }
+}

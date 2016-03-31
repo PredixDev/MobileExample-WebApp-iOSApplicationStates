@@ -1,0 +1,8 @@
+{
+  "name": "pm-appstatesexample-app",
+  "version": "0.0.1",
+  "main": "demo.html",
+  "nativeScroll": "true",
+  "src-folder": "./dist/",
+  "output-folder": "./dist-zip/"
+}
