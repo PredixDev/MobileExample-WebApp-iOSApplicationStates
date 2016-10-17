@@ -24,7 +24,7 @@ This state, announced with the notification "_UIApplicationDidReceiveMemoryWarni
 To get started, follow this documentation:
 * [Get Started with the Mobile Service and Mobile SDK] (https://www.predix.io/docs#rae4EfJ6) 
 * [Running the Predix Mobile Sample App] (https://www.predix.io/docs#EGUzWwcC)
-* [Creating a Mobile Hello World Webapp] (https://www.predix.io/docs#DrBWuHkl) 
+* [Creating a Mobile Hello World Web App] (https://www.predix.io/docs#DrBWuHkl) 
 
 ### Demo webapp
 In this Predix Mobile webapp example, we subscribe to the above three notifications and show how state can be stored in a local couchbase document when the application is backgrounding, and then retrieve that state when the application resumes to the foreground.
