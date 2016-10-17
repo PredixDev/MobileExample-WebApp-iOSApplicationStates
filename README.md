@@ -20,6 +20,11 @@ This notification can be useful to ensure the running environment has not change
 
 ### Did Receive Memory Warning
 This state, announced with the notification "_UIApplicationDidReceiveMemoryWarningNotification_", alerts the application that it has physical memory pressure it must respond to. Failure to release memory resources when this warning is given can result in an application being denied additional memory when requested, or the application being shut down. When this notification is received the Predix Mobile webapp should immediately take steps to reduce its memory footprint.
+## Before You Begin
+To get started, follow this documentation:
+* [Get Started with the Mobile Service and Mobile SDK] (https://www.predix.io/docs#rae4EfJ6) 
+* [Running the Predix Mobile Sample App] (https://www.predix.io/docs#EGUzWwcC)
+* [Creating a Mobile Hello World Webapp] (https://www.predix.io/docs#DrBWuHkl) 
 
 ### Demo webapp
 In this Predix Mobile webapp example, we subscribe to the above three notifications and show how state can be stored in a local couchbase document when the application is backgrounding, and then retrieve that state when the application resumes to the foreground.
